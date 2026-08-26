@@ -1,0 +1,101 @@
+name: roomy-daily-refresh
+
+# 毎朝 06:53 JST（= 21:53 UTC 前日）に GA4実測（Windsor.ai REST）で R_GA_DATA を前日まで更新し、
+# 検証 → 再暗号化 → main へコミット（GitHub Pages が自動再デプロイ）。
+# 秘密情報はリポジトリに置かない：Settings > Secrets and variables > Actions に
+#   WINDSOR_API_KEY（Windsor.aiのAPIキー） / ROOMY_GATE_KEY（"id:pw" 形式の鍵素材）
+# の2つを登録すると自動で有効になる。未登録の間は何もせず緑で終わる。
+
+on:
+  schedule:
+    - cron: "53 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: roomy-daily
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        id: gate
+        env:
+          WK: ${{ secrets.WINDSOR_API_KEY }}
+          RK: ${{ secrets.ROOMY_GATE_KEY }}
+        run: |
+          if [ -z "$WK" ] || [ -z "$RK" ]; then
+            echo "::notice::WINDSOR_API_KEY / ROOMY_GATE_KEY が未登録のためスキップ（登録すると自動更新が始まります）"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          pip install cryptography
+          npm install playwright --no-save
+          npx playwright install --with-deps chromium
+
+      - name: Fetch GA4 data (Windsor REST)
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          WINDSOR_API_KEY: ${{ secrets.WINDSOR_API_KEY }}
+        run: python3 tools/fetch_windsor.py
+
+      - name: Recover current sources
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          ROOMY_GATE_KEY: ${{ secrets.ROOMY_GATE_KEY }}
+        run: python3 tools/recover.py
+
+      - name: Refresh data (with control-group validation)
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          python3 tools/refresh.py | tee /tmp/refresh_report.txt
+          FAILS=$(grep -c '^FAIL' /tmp/refresh_report.txt || true)
+          echo "FAIL keys: $FAILS"
+          if [ "$FAILS" -ge 3 ]; then
+            echo "::error::検証FAILが3キー以上 — データ定義ズレの可能性があるためデプロイ中止"
+            exit 1
+          fi
+
+      - name: Build & render-verify (14 sections)
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          python3 tools/build.py
+          node tools/verify.js | tee /tmp/verify.txt
+          grep -q "ERRORS: none" /tmp/verify.txt || { echo "::error::描画エラー検出 — デプロイ中止"; exit 1; }
+
+      - name: Encrypt & commit
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          ROOMY_GATE_KEY: ${{ secrets.ROOMY_GATE_KEY }}
+        run: |
+          python3 tools/encrypt.py
+          mv index_new.html index.html
+          # 平文の中間生成物は絶対にコミットしない（index.html のみ add）
+          git config user.name  "roomy-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "変更なし（データ更新なし）"
+          else
+            UPTO=$(python3 -c "import json;print(json.load(open('pull/q1_daily.json'))['dates'][-1])")
+            git commit -m "data: daily refresh through $UPTO (auto)"
+            git pull --rebase -q || true
+            git push
+          fi
