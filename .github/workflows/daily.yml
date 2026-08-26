@@ -9,6 +9,7 @@ name: roomy-daily-refresh
 on:
   schedule:
     - cron: "53 21 * * *"
+    - cron: "20 23 * * *"   # 第2便(08:20 JST)。GitHubのcron遅延・ドロップ対策。差分なしなら何もコミットされない
   workflow_dispatch:
 
 permissions:
