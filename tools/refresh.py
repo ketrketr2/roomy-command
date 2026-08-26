@@ -56,12 +56,12 @@ for dt in dates:
         chD.append(OLD['chDaily'][OLD['dates'].index(dt)])
     else:
         chD.append([0]*8)
+CTRL2 = [d for d in dates[-4:-1] if d in OLD['dates'] and d in q2][-2:]
 ok = True
-for dt in ('2026-08-22','2026-08-23'):
-    if dt in OLD['dates'] and dt in q2:
-        a, b = row_from(dt), OLD['chDaily'][OLD['dates'].index(dt)]
-        if sum(abs(x-y) for x, y in zip(a, b)) > max(10, sum(b)*0.02): ok = False
-if check('chDaily', ok, 'splice3d'):
+for dt in CTRL2:
+    a, b = row_from(dt), OLD['chDaily'][OLD['dates'].index(dt)]
+    if sum(abs(x-y) for x, y in zip(a, b)) > max(10, sum(b)*0.02): ok = False
+if check('chDaily', ok, f'splice3d ctrl={CTRL2}'):
     GA['chDaily'] = chD
 
 # ---------- q3: cvd（スライド＋末尾差替） ----------
@@ -84,8 +84,9 @@ for dt in dates:
     for k, v in zip(('mkr','dlr','td','ds','pc','est'), (mkr,dlr,td,ds,pc,mkr+dlr)):
         cvd[k].append(round(v, 1))
 # 対照群: 量子化幅を考慮して緩め（±40% or ±15）
+CTRL3 = [d for d in dates[-4:-1] if d in OLD['dates'] and d in q3][-2:]
 ok = True
-for dt in ('2026-08-22','2026-08-23'):
+for dt in CTRL3:
     j = OLD['dates'].index(dt)
     mkr = cvrow(dt)[0]
     if abs(mkr-OLD['cvd']['mkr'][j]) > max(15, OLD['cvd']['mkr'][j]*0.4): ok = False
@@ -175,19 +176,22 @@ if check('vs', ratio_ok, f"roomy s={vs['roomy']['s']}"):
     GA['vs'] = vs
 
 # ---------- monthly / sm / sitewide ----------
-m8 = load('q9_month8.json')
-monthly = [r for r in OLD['monthly'] if r[0] != '2026-08'] + [['2026-08', m8['sess'], m8['users']]]
-if check('monthly', m8['sess'] > OLD['monthly'][-1][1]*0.9): GA['monthly'] = monthly
+import os as _os
+m8 = load('q9_month.json' if _os.path.exists('pull/q9_month.json') else 'q9_month8.json')
+curYM = dates[-1][:7]
+monthly = [r for r in OLD['monthly'] if r[0] != curYM] + [[curYM, m8['sess'], m8['users']]]
+_prev = next((r for r in OLD['monthly'] if r[0] == curYM), None)
+if check('monthly', (m8['sess'] > _prev[1]*0.9) if _prev else m8['sess'] >= 0): GA['monthly'] = monthly
 q10 = load('q10_sm.json')
 if check('sm', q10[0][0] == OLD['sm'][0][0]): GA['sm'] = q10
 q11 = load('q11_sitewide.json')
 if check('sitewide', abs(q11['signup28']-OLD['sitewide']['signup28']) < OLD['sitewide']['signup28']*0.1): GA['sitewide'] = q11
 
 # ---------- R_LONG 当月行 ----------
-aug_days = [i for i, dt in enumerate(dates) if dt.startswith('2026-08')]
-aug_sess = sum(sess[i] for i in aug_days)
-newlong = [r for r in LONG if r[0] != '2026-08'] + [['2026-08', aug_sess, round(aug_sess/len(aug_days))]]
-check('R_LONG', True, f"08={aug_sess}/{len(aug_days)}日")
+cm_days = [i for i, dt in enumerate(dates) if dt.startswith(curYM)]
+cm_sess = sum(sess[i] for i in cm_days)
+newlong = [r for r in LONG if r[0] != curYM] + [[curYM, cm_sess, round(cm_sess/len(cm_days))]]
+check('R_LONG', True, f"{curYM}={cm_sess}/{len(cm_days)}日")
 
 # ---------- 書き込み ----------
 d = open('js_data.js', encoding='utf-8').read()

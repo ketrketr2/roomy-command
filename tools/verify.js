@@ -1,7 +1,8 @@
 const { chromium } = require('playwright');
 const path = require('path');
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+  const exe = process.env.PW_CHROME;   // サンドボックスでは /opt/pw-browsers/...、GitHub Actionsでは未設定（playwright標準解決）
+  const browser = await chromium.launch(exe ? { executablePath: exe } : {});
   const errors = [];
   const page = await browser.newPage({ viewport: { width: 1440, height: 940 } });
   page.on('pageerror', e => errors.push('pageerror: ' + String(e).slice(0, 200)));
