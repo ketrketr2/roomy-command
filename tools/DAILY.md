@@ -36,3 +36,8 @@ REST実装は tools/fetch_windsor.py（このMD と同一仕様）。MCP手動�
 - Windsorがタイムアウトしたら期間分割で再試行（q15参照）。前日分が0行のときは対照群（一昨日を同クエリ）で手法の正常性を確認してから「未反映」と報告。デモ値・推定値は絶対に書かない。
 - refresh.py の検証は js_data.js の既存値との重複期間比較。定義ズレはFAILになるので、クエリ仕様を勝手に変えないこと。
 - 対話セッションからの手動デプロイは従来どおり Chrome MCP（Mac mini cddb1e00 のみ・MacBook Air 5250eb1c 絶対禁止）で https://github.com/ketrketr2/roomy-command/upload/main へ。
+
+## v6追記（2026-08-27）
+- 描画層は js_render6.js（第6層）を追加。build.py / recover.py / verify.js は対応済み。ビューは search（検索状況）を含む15画面。
+- 毎朝の自動更新には tools/ai_trend.py（GEOボードのスナップショットから車種別AI言及トレンドを再抽出→ pull/ai_trend.json → refresh.py が R_V6.aiTrend に反映）が加わる。失敗しても本体更新は継続（前日までのトレンドを保持）。
+- R_V6内の静的比較データ（carSess=車種別セッション28日 / ds28 / landing / regionCmp / trends=Googleトレンド / salesLong=自販連月次2023〜）は月1回の手動リフレッシュ対象。取得手順はこのリポジトリの経緯ドキュメント参照（Windsor REST同一キー・pytrends・自販連公表PDF）。

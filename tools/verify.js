@@ -8,7 +8,7 @@ const path = require('path');
   page.on('pageerror', e => errors.push('pageerror: ' + String(e).slice(0, 200)));
   await page.goto('file://' + path.resolve('plain.html'));
   await page.waitForTimeout(2000);
-  const views = ['hq','help','vs','flow','acq','ai','launch','aud','persona','sns','market','lab','dict','ulog'];
+  const views = ['hq','help','vs','flow','acq','ai','launch','aud','persona','sns','search','market','lab','dict','ulog'];
   const rep = {};
   for (const v of views) {
     await page.evaluate(vv => showView(vv), v);

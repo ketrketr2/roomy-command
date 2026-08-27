@@ -19,7 +19,7 @@ bounds = [x[0] for x in markers] + [boot_i]
 for k, (start, name) in enumerate(markers):
     open(name, 'w', encoding='utf-8').write('\n'.join(lines[start:bounds[k+1]]))
 # 検証
-parts = ['js_data.js','js_core.js','js_render1.js','js_render2.js','js_render3.js','js_render4.js','js_render5.js']
+parts = ['js_data.js','js_core.js','js_render1.js','js_render2.js','js_render3.js','js_render4.js','js_render5.js','js_render6.js']
 sk = open('roomy.html', encoding='utf-8').read(); h, t = sk.split('/*JS*/\n')
 assert h + '\n'.join(open(p, encoding='utf-8').read() for p in parts) + '\n' + t == doc
 print('recovered 7 files + skeleton (lossless)')

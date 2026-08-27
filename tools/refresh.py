@@ -207,13 +207,30 @@ open('js_data.js', 'w', encoding='utf-8').write(d)
 # ---------- render層の揮発リテラル ----------
 ai_s = GA['ch'][6]['s']; ai_share = round(GA['ch'][6]['n']/GA['ch'][6]['u']*100, 1)
 gpt28 = sum(r[1] for r in GA['sm'] if r[0].split(' / ')[0] in ('openai','chatgpt.com'))
-for f in ('js_render3.js','js_render4.js','js_render5.js'):
+for f in ('js_render3.js','js_render4.js','js_render5.js','js_render6.js'):
     t = open(f, encoding='utf-8').read(); o = t
     t = re.sub(r'90日で?429セッション', f'90日{ai_s}セッション', t)
     t = re.sub(r'90日429セッション', f'90日{ai_s}セッション', t)
     t = re.sub(r'新規率68\.\d%', f'新規率{ai_share}%', t)
     t = re.sub(r'直近28日で\d+', f'直近28日で{gpt28}', t)
     if t != o: open(f, 'w', encoding='utf-8').write(t)
+
+
+# ---------- R_V6.aiTrend 自動更新（pull/ai_trend.json があれば） ----------
+try:
+    import os as _o
+    if _o.path.exists('pull/ai_trend.json'):
+        at=json.load(open('pull/ai_trend.json'))
+        d2=open('js_data.js',encoding='utf-8').read()
+        m2=re.search(r'(window\.R_V6=)(.*?)(;\n)',d2,re.S)
+        v6=json.loads(m2.group(2))
+        v6['aiTrend']=at['aiTrend']
+        if at.get('asof'): v6.setdefault('asof',{})['ai']=at['asof']
+        d2=d2[:m2.start(2)]+json.dumps(v6,ensure_ascii=False,separators=(',',':'))+d2[m2.end(2):]
+        open('js_data.js','w',encoding='utf-8').write(d2)
+        print('R_V6.aiTrend updated through',at.get('asof'))
+except Exception as e:
+    print('aiTrend merge skipped:',e)
 
 print('=== 検証レポート ===')
 fails = 0
