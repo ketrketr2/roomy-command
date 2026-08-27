@@ -57,6 +57,10 @@ jobs:
           WINDSOR_API_KEY: ${{ secrets.WINDSOR_API_KEY }}
         run: python3 tools/fetch_windsor.py
 
+      - name: AI mention trend (from toyota-geo-board snapshots)
+        if: steps.gate.outputs.ready == 'true'
+        run: python3 tools/ai_trend.py || echo "::warning::ai_trend skipped（本体の更新は継続）"
+
       - name: Recover current sources
         if: steps.gate.outputs.ready == 'true'
         env:
