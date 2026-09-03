@@ -71,8 +71,11 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         run: |
           python3 tools/refresh.py | tee /tmp/refresh_report.txt
+          { echo '### refresh 検証レポート'; echo '```'; cat /tmp/refresh_report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           FAILS=$(grep -c '^FAIL' /tmp/refresh_report.txt || true)
           echo "FAIL keys: $FAILS"
+          # 窓スライド由来のドリフトは refresh.py 側で baseline gap に応じて許容される（2026-09-03修正）。
+          # ここで3キー以上FAILするのは「同一日付の値が合わない＝データ定義ズレ」の疑いが強い場合のみ。
           if [ "$FAILS" -ge 3 ]; then
             echo "::error::検証FAILが3キー以上 — データ定義ズレの可能性があるためデプロイ中止"
             exit 1
