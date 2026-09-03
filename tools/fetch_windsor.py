@@ -133,6 +133,12 @@ rows = q(['sessions', 'totalusers'], m1, YB, ROOMY)
 r0 = rows[0] if rows else {}
 save('q9_month.json', {'sess': num(r0.get('sessions')), 'users': num(r0.get('totalusers'))})
 
+# ---- q9b: 前月確定値（停止が月境界をまたいだときの monthly/R_LONG ヒール用） ----
+pm_last = m1 - timedelta(days=1); pm_first = pm_last.replace(day=1)
+rows = q(['sessions', 'totalusers'], pm_first, pm_last, ROOMY)
+r0 = rows[0] if rows else {}
+save('q9_prevmonth.json', {'ym': str(pm_first)[:7], 'sess': num(r0.get('sessions')), 'users': num(r0.get('totalusers'))})
+
 # ---- q10: source/medium 上位20（28日） ----
 rows = q(['source', 'medium', 'sessions', 'engaged_sessions'], D28, YB, ROOMY, {'_max_rows': '300'})
 rows.sort(key=lambda r: -float(r['sessions'] or 0))
