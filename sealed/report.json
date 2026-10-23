@@ -1,0 +1,32 @@
+{
+ "roomy_aio": {
+  "ok": true,
+  "plain_bytes": 4005933,
+  "iter": 600000
+ },
+ "roomy_command": {
+  "ok": true,
+  "plain_bytes": 807947,
+  "iter": 200000
+ },
+ "car_signal": {
+  "ok": true,
+  "plain_bytes": 490740,
+  "iter": 200000
+ },
+ "car_deepdive": {
+  "ok": true,
+  "plain_bytes": 176709,
+  "iter": 200000
+ },
+ "ucar_signal": {
+  "ok": true,
+  "plain_bytes": 2676009,
+  "iter": 200000
+ },
+ "ga4_command": {
+  "ok": true,
+  "plain_bytes": 338684,
+  "iter": 200000
+ }
+}
