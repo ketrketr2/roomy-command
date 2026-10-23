@@ -1,0 +1,101 @@
+name: dataman-digest
+
+# ID/PW付きボード6枚（ROOMY AIO・ROOMY COMMAND・CAR×AI SIGNAL・車種別AI分析・U-CAR SIGNAL・GA4 COMMAND）を
+# 毎朝 Actions 上でだけ復号し、全画面を描画して「本文・図の数値・元データ」をデータマン用の資料にする。
+# 資料はデータマン（Mac mini）の公開鍵で封をして dataman-sealed ブランチに置く。開けられるのは Mac mini の秘密鍵だけ。
+#   - 鍵素材（ID/PW）は Secrets（ROOMY_GATE_KEY）からだけ読む。平文はコミットせず、ジョブの最後に消す
+#   - 公開鍵は toyota-geo-board/config/dataman_recipient.pub（Mac mini が tools/dataman_keygen.py で作成）
+#   - Mac mini 側は toyota-geo-board/tools/dataman_open_sealed.py で kb/boards/ に展開する
+# 各ボードの毎朝更新（06:53〜08:50 JST）の後に回す。予備便あり。内容が同じでも毎回置き直す（作成時刻で鮮度を判定するため）。
+on:
+  schedule:
+    - cron: "15 0 * * *"    # 09:15 JST
+    - cron: "15 3 * * *"    # 12:15 JST（予備）
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["tools/dataman/**", ".github/workflows/dataman-digest.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dataman-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 受け取り鍵（データマンの公開鍵）の確認
+        id: pub
+        run: |
+          if curl -fsS -H 'Cache-Control: no-cache' "https://raw.githubusercontent.com/ketrketr2/toyota-geo-board/main/config/dataman_recipient.pub?t=$(date +%s)" -o /tmp/recipient.pub && [ -s /tmp/recipient.pub ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::データマンの公開鍵が未登録のためスキップ（Mac mini で tools/dataman_keygen.py を実行して push すると自動で始まる）"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.pub.outputs.ok == 'true'
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        if: steps.pub.outputs.ok == 'true'
+        with:
+          node-version: "20"
+
+      - name: 依存
+        if: steps.pub.outputs.ok == 'true'
+        run: |
+          pip install -q cryptography
+          npm install --no-save --silent playwright@1.56.1 d3@7.9.0 echarts@5.6.0
+          npx playwright install --with-deps chromium
+
+      - name: 復号（平文は作業フォルダの中だけ）
+        if: steps.pub.outputs.ok == 'true'
+        env:
+          GK: ${{ secrets.ROOMY_GATE_KEY }}
+        run: python3 tools/dataman/decrypt_boards.py /tmp/dm/plain
+
+      - name: 全画面を描画して本文と図の数値を書き出す
+        if: steps.pub.outputs.ok == 'true'
+        run: |
+          node tools/dataman/extract_roomy_aio.js /tmp/dm/plain /tmp/dm/text
+          node tools/dataman/extract_boards.js /tmp/dm/plain /tmp/dm/text
+
+      - name: 資料化
+        if: steps.pub.outputs.ok == 'true'
+        run: |
+          python3 tools/dataman/build_digest.py /tmp/dm/plain /tmp/dm/text /tmp/dm/digest
+          cat /tmp/dm/digest/_manifest.json
+          python3 -c "import json,sys; m=json.load(open('/tmp/dm/digest/_manifest.json')); bad=[b['name'] for b in m['boards'] if not b['ok']]; print('失敗:', bad); sys.exit(1 if len(bad)==len(m['boards']) else 0)"
+
+      - name: 封をして dataman-sealed ブランチに置く
+        if: steps.pub.outputs.ok == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/dm/out/sealed
+          python3 tools/dataman/pack_and_seal.py /tmp/dm/digest /tmp/recipient.pub /tmp/dm/out/sealed/boards.bin
+          cp /tmp/dm/digest/_manifest.json /tmp/dm/out/sealed/manifest.json
+          cd /tmp/dm/out
+          git init -q -b dataman-sealed
+          git config user.name  "dataman-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add sealed
+          git commit -q -m "sealed: データマン用ボード資料 $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git push -f -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:dataman-sealed && exit 0
+            sleep $((i * 10))
+          done
+          echo "::error::dataman-sealed への push に失敗"; exit 1
+
+      - name: 平文を消す
+        if: always()
+        run: rm -rf /tmp/dm/plain /tmp/dm/text /tmp/dm/digest
