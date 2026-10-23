@@ -1,0 +1,41 @@
+name: dataman-unseal
+
+# データマン（Mac mini）にボードの中身を渡すための復号ジョブ。このブランチ専用（main・GitHub Pages には触らない）。
+# 鍵素材は Secrets（ROOMY_GATE_KEY）からだけ読む。平文はコミットしない。受け取り手の公開鍵で封をした sealed/*.bin だけを置く。
+on:
+  push:
+    branches: [dataman-unseal]
+    paths: [".github/workflows/dataman-unseal.yml", "tools/dataman_unseal.py", "tools/dataman_recipient.pub"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dataman-unseal
+  cancel-in-progress: false
+
+jobs:
+  unseal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q cryptography
+      - name: Decrypt boards and seal for recipient
+        env:
+          GK: ${{ secrets.ROOMY_GATE_KEY }}
+        run: python3 tools/dataman_unseal.py
+      - name: Commit sealed files
+        if: always()
+        run: |
+          git config user.name  "dataman-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f sealed/*.bin sealed/report.json 2>/dev/null || true
+          git diff --staged --quiet && { echo "変更なし"; exit 0; }
+          git commit -q -m "sealed: board digests for dataman $(date -u +%Y-%m-%dT%H:%M)"
+          for i in 1 2 3; do git pull --rebase -q origin dataman-unseal && git push -q origin HEAD:dataman-unseal && exit 0; sleep $((i*10)); done
+          echo "::error::push 失敗"; exit 1
