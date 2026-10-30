@@ -1,0 +1,41 @@
+{
+ "built_at": "2026-10-30T19:04:00+09:00",
+ "boards": [
+  {
+   "name": "roomy_aio",
+   "ok": true,
+   "screens": 43,
+   "note": ""
+  },
+  {
+   "name": "roomy_command",
+   "ok": true,
+   "screens": 15,
+   "note": ""
+  },
+  {
+   "name": "car_signal",
+   "ok": true,
+   "screens": 5,
+   "note": "AI指標の計測回: 2026-08-28"
+  },
+  {
+   "name": "car_deepdive",
+   "ok": true,
+   "screens": 11,
+   "note": "AI指標の計測回: 2026-08-28"
+  },
+  {
+   "name": "ucar_signal",
+   "ok": true,
+   "screens": 10,
+   "note": ""
+  },
+  {
+   "name": "ga4_command",
+   "ok": true,
+   "screens": 12,
+   "note": ""
+  }
+ ]
+}
