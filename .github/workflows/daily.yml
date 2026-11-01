@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright 1.56 は ubuntu 26.04 非対応（2026-10-31 から ubuntu-latest が 26.04 に切替わり失敗）
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
